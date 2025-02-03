@@ -44,7 +44,8 @@ export async function POST(request: Request) {
       data: {
         fullName: formData.get('fullName') as string,
         nationalId: formData.get('nationalId') as string,
-        // birthDate: new Date(formData.get('birthDate') as string),
+        // birthDate: formData.get('birthDate') as string,
+        birthDate: new Date(formData.get('birthDate') as string),
         city: formData.get('city') as string,
         level: formData.get('level') as string,
         // level: parseInt(formData.get('level') as string),

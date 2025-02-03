@@ -105,11 +105,12 @@ export default function RegistrationForm() {
       setSubmitError(null);
       
       const formData = new FormData();
-      
+      const birthDate = new Date(data.birthDate);
+      const isoString = birthDate.toISOString();
       // Add text fields
       formData.append('fullName', data.fullName);
       formData.append('nationalId', data.nationalId);
-      formData.append('birthDate', data.birthDate);
+      formData.append('birthDate', isoString);
       formData.append('city', data.city);
       formData.append('level', data.level?.toString() || '1');
       formData.append('mobileNumber', data.mobileNumber);
