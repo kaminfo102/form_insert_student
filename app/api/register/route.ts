@@ -5,15 +5,12 @@ import { join } from 'path';
 import { mkdir } from 'fs/promises';
 import sharp from 'sharp';
 
-
 const prisma = new PrismaClient();
 
-// تابع برای سانیتایز نام فایل
 const sanitizeFilename = (name: string) => {
   return name.replace(/[^a-zA-Z0-9]/g, '_');
 };
 
-// تابع برای تولید تاریخ فرمت شده
 const getFormattedTimestamp = () => {
   const now = new Date();
   return [
@@ -29,91 +26,101 @@ const getFormattedTimestamp = () => {
   ].join('');
 };
 
-
-
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
 
-    // دریافت کد ملی
-  const nationalId = formData.get('nationalId') as string;
-  if (!nationalId) {
-    return new Response('کد ملی الزامی است', { status: 400 });
-  }
-    
-    // Create uploads directory if it doesn't exist
+    // اعتبارسنجی فیلدهای اجباری
+    const requiredFields = ['fullName', 'nationalId', 'birthDate', 'city', 'level', 'mobileNumber'];
+    for (const field of requiredFields) {
+      if (!formData.get(field)) {
+        return NextResponse.json(
+          { success: false, error: `فیلد ${field} الزامی است` },
+          { status: 400 }
+        );
+      }
+    }
+
+    const nationalId = formData.get('nationalId') as string;
     const uploadDir = join(process.cwd(), 'public/uploads');
     await mkdir(uploadDir, { recursive: true });
-    
-    // Handle profile image upload
-    const profileImage = formData.get('profileImage') as File;
+
+    // پردازش عکس پروفایل
     let profileImagePath = '';
-    if (profileImage) {
+    const profileImage = formData.get('profileImage') as File | null;
+    if (profileImage && profileImage.size > 0) {
       try {
         const buffer = Buffer.from(await profileImage.arrayBuffer());
         const sanitizedNationalId = sanitizeFilename(nationalId);
         const timestamp = getFormattedTimestamp();
-        
-        // بهینهسازی تصویر
+
         const optimizedImage = await sharp(buffer)
           .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
           .webp({ quality: 80 })
           .toBuffer();
-  
-        // تولید نام فایل
+
         const fileName = `profile_${sanitizedNationalId}_${timestamp}.webp`;
         const filePath = join(uploadDir, fileName);
-        
         await writeFile(filePath, optimizedImage);
         profileImagePath = `/uploads/${fileName}`;
       } catch (error) {
         console.error('خطا در پردازش عکس پروفایل:', error);
+        return NextResponse.json(
+          { success: false, error: 'خطا در پردازش عکس پروفایل' },
+          { status: 500 }
+        );
       }
     }
-    
-   // پردازش رسیدها
-  const receiptFiles = formData.getAll('receipts') as File[];
-  const receiptPaths: string[] = [];
 
-  for (const [index, receipt] of receiptFiles.entries()) {
-    try {
-      const buffer = Buffer.from(await receipt.arrayBuffer());
-      const sanitizedNationalId = sanitizeFilename(nationalId);
-      const timestamp = getFormattedTimestamp();
+    // پردازش رسیدها
+    const receiptFiles = formData.getAll('receipts') as File[];
+    const receiptPaths: string[] = [];
 
-      // بررسی نوع فایل
-      if (receipt.type.startsWith('image/')) {
-        // بهینهسازی تصاویر
-        const optimizedImage = await sharp(buffer)
-          .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
-          .webp({ quality: 85 })
-          .toBuffer();
+    for (let i = 0; i < receiptFiles.length; i++) {
+      const receipt = receiptFiles[i];
+      try {
+        if (receipt.size === 0) continue;
 
-        // تولید نام فایل
-        const fileName = `receipt_${sanitizedNationalId}_${timestamp}_${index}.webp`;
-        const filePath = join(uploadDir, fileName);
-        
-        await writeFile(filePath, optimizedImage);
-        receiptPaths.push(`/uploads/${fileName}`);
-      } else {
-        // پردازش فایلهای غیر تصویری
-        const ext = receipt.name.split('.').pop() || 'file';
-        const fileName = `receipt_${sanitizedNationalId}_${timestamp}_${index}.${ext}`;
-        const filePath = join(uploadDir, fileName);
-        
-        await writeFile(filePath, buffer);
-        receiptPaths.push(`/uploads/${fileName}`);
+        const buffer = Buffer.from(await receipt.arrayBuffer());
+        const sanitizedNationalId = sanitizeFilename(nationalId);
+        const timestamp = getFormattedTimestamp();
+
+        if (receipt.type.startsWith('image/')) {
+          const optimizedImage = await sharp(buffer)
+            .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 85 })
+            .toBuffer();
+
+          const fileName = `receipt_${sanitizedNationalId}_${timestamp}_${i}.webp`;
+          const filePath = join(uploadDir, fileName);
+          await writeFile(filePath, optimizedImage);
+          receiptPaths.push(`/uploads/${fileName}`);
+        } else {
+          const ext = receipt.name.split('.').pop()?.toLowerCase() || 'file';
+          const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+          if (!allowedExtensions.includes(ext)) {
+            throw new Error('فرمت فایل مجاز نیست');
+          }
+
+          const fileName = `receipt_${sanitizedNationalId}_${timestamp}_${i}.${ext}`;
+          const filePath = join(uploadDir, fileName);
+          await writeFile(filePath, buffer);
+          receiptPaths.push(`/uploads/${fileName}`);
+        }
+      } catch (error) {
+        console.error(`خطا در پردازش رسید شماره ${i + 1}:`, error);
+        return NextResponse.json(
+          { success: false, error: `خطا در پردازش رسید شماره ${i + 1}: ${(error as Error).message}` },
+          { status: 400 }
+        );
       }
-    } catch (error) {
-      console.error(`خطا در پردازش رسید شماره ${index + 1}:`, error);
     }
-  }
 
-    // Create registration record
+    // ایجاد رکورد در دیتابیس
     const registration = await prisma.registration.create({
       data: {
         fullName: formData.get('fullName') as string,
-        nationalId: formData.get('nationalId') as string,
+        nationalId,
         birthDate: new Date(formData.get('birthDate') as string),
         city: formData.get('city') as string,
         level: formData.get('level') as string,
@@ -124,18 +131,21 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      data: registration 
+    return NextResponse.json({
+      success: true,
+      data: registration
     });
+
   } catch (error) {
     console.error('Registration error:', error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'خطا در ثبت اطلاعات. لطفا دوباره تلاش کنید.' 
+      {
+        success: false,
+        error: 'خطا در ثبت اطلاعات. لطفا دوباره تلاش کنید.'
       },
       { status: 500 }
     );
+  } finally {
+    await prisma.$disconnect();
   }
 }

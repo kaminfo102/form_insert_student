@@ -11,6 +11,7 @@ import persian from 'react-date-object/calendars/persian';
 import persian_fa from 'react-date-object/locales/persian_fa';
 import { Progress } from '@/components/ui/progress';
 import { useDropzone } from 'react-dropzone';
+import Image from 'next/image';
 
 const kurdistanCities = [
   'سنندج',
@@ -301,11 +302,20 @@ export default function RegistrationForm() {
                 >
                   <X className="w-5 h-5" />
                 </button>
-                <img
+                {/* <img
                   src={URL.createObjectURL(files[0])}
                   alt="Preview"
                   className="w-full rounded-lg"
-                />
+                /> */}
+
+                    <Image
+                      src={URL.createObjectURL(files[0])}
+                      alt="Preview"
+                      className="w-full rounded-lg"
+                      layout="responsive"
+                      width={500} // عرض تصویر را تنظیم کنید
+                      height={500} // ارتفاع تصویر را تنظیم کنید
+                    />
               </div>
             )}
           </div>
@@ -343,9 +353,15 @@ export default function RegistrationForm() {
           </div>
         )}
 
-        {errors[step.field as keyof FormData] && (
+        {/* {errors[step.field as keyof FormData] && (
           <p className="text-red-500 text-center mt-2 bg-red-50 p-3 rounded-xl">
             {errors[step.field as keyof FormData]?.message}
+          </p>
+        )} */}
+
+        {errors[step.field as keyof FormData] && (
+          <p className="text-red-500 text-center mt-2 bg-red-50 p-3 rounded-xl">
+            {errors[step.field as keyof FormData]?.message?.toString()}
           </p>
         )}
 
