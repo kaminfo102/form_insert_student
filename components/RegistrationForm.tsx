@@ -9,9 +9,10 @@ import { User, Phone, Calendar, MapPin, School, Camera, Receipt, ChevronLeft, Ch
 import DatePicker from 'react-multi-date-picker';
 import persian from 'react-date-object/calendars/persian';
 import persian_fa from 'react-date-object/locales/persian_fa';
-import { Progress } from '@/components/ui/progress';
+import { Abacus } from '@/components/Abacus';
 import { useDropzone } from 'react-dropzone';
 import Image from 'next/image';
+import React from 'react';
 
 const kurdistanCities = [
   'سنندج',
@@ -34,7 +35,7 @@ const formSchema = z.object({
   level: z.string().optional(),
   // level: z.number().min(1).max(18),
   mobileNumber: z.string().regex(/^09\d{9}$/, 'شماره موبایل معتبر نیست'),
-  emergencyNumber: z.string().regex(/^\d{11}$/, 'شماره تلفن معتبر نیست'),
+  emergencyNumber: z.string().regex(/^\d{11}$/, 'شماره تلفن معتبر نیست').optional(),
   profileImage: z.string().optional(),
   receipts: z.array(z.string()).optional(),
  
@@ -49,7 +50,7 @@ const steps = [
   { field: 'city', icon: MapPin, label: 'شهرستان' },
   { field: 'level', icon: School, label: 'سطح' },
   { field: 'mobileNumber', icon: Phone, label: 'شماره همراه' },
-  { field: 'emergencyNumber', icon: Phone, label: 'شماره ثابت یا اضطراری' },
+  // { field: 'emergencyNumber', icon: Phone, label: 'شماره ثابت یا اضطراری' },
   { field: 'profileImage', icon: Camera, label: 'تصویر فراگیر' },
   { field: 'receipts', icon: Receipt, label: 'رسید پرداخت' },
 ];
@@ -61,6 +62,7 @@ export default function RegistrationForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  // const [progress1, setProgress1] = React.useState(30);
 
   const { register, handleSubmit, setValue, watch, formState: { errors }, reset } = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -115,7 +117,9 @@ export default function RegistrationForm() {
       formData.append('city', data.city);
       formData.append('level', data.level?.toString() || '1');
       formData.append('mobileNumber', data.mobileNumber);
-      formData.append('emergencyNumber', data.emergencyNumber);
+      if (data.emergencyNumber) {
+        formData.append('emergencyNumber', data.emergencyNumber);
+      } else { formData.append('emergencyNumber', ''); }
       
       // Add profile image
       if (files[0]) {
@@ -264,14 +268,14 @@ export default function RegistrationForm() {
         {step.field === 'mobileNumber' && (
           <input
             {...register('mobileNumber')}
-            className="form-input"
+            className="form-input text-right"
             placeholder="شماره همراه خود را وارد کنید"
             type="tel"
             inputMode="numeric"
           />
         )}
 
-        {step.field === 'emergencyNumber' && (
+        {/* {step.field === 'emergencyNumber' && (
           <input
             {...register('emergencyNumber')}
             className="form-input"
@@ -279,7 +283,7 @@ export default function RegistrationForm() {
             type="tel"
             inputMode="numeric"
           />
-        )}
+        )} */}
 
         {step.field === 'profileImage' && (
           <div className="space-y-4">
@@ -302,19 +306,14 @@ export default function RegistrationForm() {
                 >
                   <X className="w-5 h-5" />
                 </button>
-                {/* <img
-                  src={URL.createObjectURL(files[0])}
-                  alt="Preview"
-                  className="w-full rounded-lg"
-                /> */}
-
+                
                     <Image
                       src={URL.createObjectURL(files[0])}
                       alt="Preview"
                       className="w-full rounded-lg"
                       layout="responsive"
-                      width={500} // عرض تصویر را تنظیم کنید
-                      height={500} // ارتفاع تصویر را تنظیم کنید
+                      width={50} // عرض تصویر را تنظیم کنید
+                      height={50} // ارتفاع تصویر را تنظیم کنید
                     />
               </div>
             )}
@@ -353,12 +352,7 @@ export default function RegistrationForm() {
           </div>
         )}
 
-        {/* {errors[step.field as keyof FormData] && (
-          <p className="text-red-500 text-center mt-2 bg-red-50 p-3 rounded-xl">
-            {errors[step.field as keyof FormData]?.message}
-          </p>
-        )} */}
-
+      
         {errors[step.field as keyof FormData] && (
           <p className="text-red-500 text-center mt-2 bg-red-50 p-3 rounded-xl">
             {errors[step.field as keyof FormData]?.message?.toString()}
@@ -418,7 +412,14 @@ export default function RegistrationForm() {
 
   return (
     <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-xl p-6 md:p-8">
-      <Progress value={progress} className="mb-8" />
+      <Abacus
+        value={progress}
+        beadCount={steps.length}
+        beadColor="#3b82f6"
+        trackColor="#e2e8f0"
+        className="mb-4 w-60 h-12 mx-auto"
+      />
+       
       <form className="relative min-h-[400px]">
         <AnimatePresence mode="wait">
           {renderStep()}

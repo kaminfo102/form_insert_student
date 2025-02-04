@@ -32,16 +32,29 @@ export async function POST(request: Request) {
 
     // اعتبارسنجی فیلدهای اجباری
     const requiredFields = ['fullName', 'nationalId', 'birthDate', 'city', 'level', 'mobileNumber'];
-    for (const field of requiredFields) {
-      if (!formData.get(field)) {
-        return NextResponse.json(
-          { success: false, error: `فیلد ${field} الزامی است` },
-          { status: 400 }
-        );
-      }
+    const missingFields = requiredFields.filter(field => !formData.get(field));
+
+    if (missingFields.length > 0) {
+      return NextResponse.json(
+        { success: false, error: `فیلدهای زیر الزامی هستند: ${missingFields.join(', ')}` },
+        { status: 400 }
+      );
     }
 
     const nationalId = formData.get('nationalId') as string;
+
+    // بررسی تکراری نبودن کد ملی
+    const existingRegistration = await prisma.registration.findUnique({
+      where: { nationalId },
+    });
+
+    if (existingRegistration) {
+      return NextResponse.json(
+        { success: false, error: 'کد ملی تکراری است' },
+        { status: 400 }
+      );
+    }
+
     const uploadDir = join(process.cwd(), 'public/uploads');
     await mkdir(uploadDir, { recursive: true });
 
